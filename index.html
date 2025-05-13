@@ -1,0 +1,122 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dutch Auction</title>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <!-- 角色選擇 -->
+  <div id="roleSelect" style="border:1px solid #ccc; padding:10px; margin-bottom:20px;">
+    <h3>請選擇您的身分：</h3>
+    <button onclick="setRole('host')">我是主持人</button>
+    <button onclick="setRole('user')">我是參與者</button>
+  </div>
+
+  <!-- 主持人控制面板（僅主持人可見） -->
+  <div id="hostPanel" style="display:none; border:1px solid #ccc; padding:10px; margin-bottom:20px;">
+    <h3>🎤 主持人控制面板</h3>
+    <label>拍賣品名稱：<input id="itemName" type="text" value="神秘花卉" /></label><br/>
+    <label>起始價格：$<input id="startPrice" type="number" value="100" /></label><br/>
+    <label>最低價格：$<input id="minPrice" type="number" value="30" /></label><br/>
+    <label>每次遞減：$<input id="decrement" type="number" value="5" /></label><br/>
+    <label>間隔時間（毫秒）：<input id="interval" type="number" value="2000" /></label><br/><br/>
+    <button id="startAuctionBtn">▶ 開始拍賣</button>
+  </div>
+
+  <!-- 使用者暱稱輸入 -->
+  <div id="nicknameSection" style="display:none; border:1px solid #ccc; padding:10px; margin-bottom:20px;">
+    <h3>🙋‍♂️ 請輸入您的暱稱參加拍賣：</h3>
+    <input type="text" id="nicknameInput" placeholder="輸入你的名字">
+    <button onclick="registerNickname()">送出</button>
+    <span id="nicknameStatus" style="color:green;"></span>
+  </div>
+
+  <!-- 拍賣畫面 -->
+  <div id="auctionSection" style="display:none;">
+    <h1 id="item">拍賣項目</h1>
+    <h2>目前價格：$<span id="price">-</span></h2>
+    <button id="bidButton">搶標</button>
+    <p id="result"></p>
+  </div>
+
+  <!-- 拍賣紀錄 -->
+  <div id="historySection" style="display:none; margin-top:30px;">
+    <h3>📜 拍賣紀錄</h3>
+    <ul id="historyList"></ul>
+  </div>
+
+  <script>
+    const socket = io();
+    let role = null;
+
+    function setRole(selectedRole) {
+      role = selectedRole;
+      document.getElementById('roleSelect').style.display = 'none';
+      document.getElementById('nicknameSection').style.display = 'block';
+      document.getElementById('auctionSection').style.display = 'block';
+      document.getElementById('historySection').style.display = 'block';
+      if (role === 'host') {
+        document.getElementById('hostPanel').style.display = 'block';
+      }
+    }
+
+    function registerNickname() {
+      const nickname = document.getElementById('nicknameInput').value.trim();
+      if (nickname) {
+        socket.emit('set-nickname', nickname);
+        document.getElementById('nicknameStatus').innerText = `你好，${nickname}！`;
+      }
+    }
+
+    const startBtn = document.getElementById('startAuctionBtn');
+    if (startBtn) {
+      startBtn.onclick = () => {
+        const data = {
+          item: document.getElementById('itemName').value,
+          startPrice: Number(document.getElementById('startPrice').value),
+          minPrice: Number(document.getElementById('minPrice').value),
+          decrement: Number(document.getElementById('decrement').value),
+          interval: Number(document.getElementById('interval').value),
+        };
+        socket.emit('start-auction', data);
+      };
+    }
+
+    const item = document.getElementById('item');
+    const price = document.getElementById('price');
+    const result = document.getElementById('result');
+    const bidButton = document.getElementById('bidButton');
+    const historyList = document.getElementById('historyList');
+
+    socket.on('auction-started', (data) => {
+      item.innerText = data.item;
+      price.innerText = data.price;
+      result.innerText = '';
+      bidButton.disabled = false;
+    });
+
+    socket.on('price-updated', (data) => {
+      price.innerText = data.price;
+    });
+
+    socket.on('auction-won', (data) => {
+      result.innerText = `拍賣得主：${data.winner}，價格：$${data.price}`;
+      bidButton.disabled = true;
+      const li = document.createElement('li');
+      li.innerText = `${data.item || '拍賣品'}：${data.winner} 以 $${data.price} 得標`;
+      historyList.prepend(li);
+    });
+
+    socket.on('auction-ended', (data) => {
+      result.innerText = '拍賣結束，無人出價';
+      bidButton.disabled = true;
+    });
+
+    bidButton.onclick = () => {
+      socket.emit('bid');
+    };
+  </script>
+</body>
+</html>
