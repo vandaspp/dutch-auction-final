@@ -18,7 +18,7 @@ let auction = {
   running: false
 };
 
-let users = {}; // socket.id -> nickname
+let users = {};
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -58,7 +58,7 @@ io.on('connection', (socket) => {
     clearInterval(auction.timer);
     auction.running = false;
     const nickname = users[socket.id] || socket.id;
-    io.emit('auction-won', { winner: nickname, price: auction.price });
+    io.emit('auction-won', { winner: nickname, price: auction.price, item: auction.item });
   });
 
   socket.on('disconnect', () => {
@@ -66,4 +66,5 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(3000, () => console.log('Server running on http://localhost:3000'));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
